@@ -12,6 +12,7 @@ import TodoWriteScreen from './screens/TodoWriteScreen';
 import MyPageScreen from './screens/MyPageScreen';
 import HomeScreen from './screens/HomeScreen';
 import ButlerScreen from './screens/ButlerScreen';
+import GameScreen from './screens/GameScreen';
 import LoginScreen from './components/LoginScreen';
 import SignUpScreen from './components/SignUpScreen';
 import BoardScreen from './writescreens/BoardScreen';
@@ -38,17 +39,7 @@ const App = () => {
             ),
           }}
         />
-        <Tab.Screen
-          name="Home"
-          component={HomeScreen}
-          options={{
-            title: '메인 홈',
-            headerTitleAlign: 'center',
-            tabBarIcon: ({ focused }) => (
-              <AntDesign name="home" size={24} color="black" />
-            ),
-          }}
-        />
+        
        
 
        <Tab.Screen 
@@ -64,6 +55,29 @@ const App = () => {
   {props => <BoardStackScreen {...props} posts={posts} setPosts={setPosts} />}
 </Tab.Screen>
 
+<Tab.Screen
+          name="Home"
+          component={HomeScreen}
+          options={{
+            title: '메인 홈',
+            headerTitleAlign: 'center',
+            tabBarIcon: ({ focused }) => (
+              <AntDesign name="home" size={24} color="black" />
+            ),
+          }}
+        />
+        
+<Tab.Screen
+      name="Game"
+      component={GameScreen}
+      options={{
+        title: "게임",
+        headerTitleAlign: "center",
+        tabBarIcon: ({ focused }) => (
+          <FontAwesome6 name="gamepad" size={24} color="black" />
+        ),
+      }}
+    />
         <Tab.Screen
           name="내정보"
           component={MyPageStackScreen}
