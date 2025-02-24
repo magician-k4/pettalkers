@@ -18,6 +18,7 @@ import SignUpScreen from './components/SignUpScreen';
 import BoardScreen from './writescreens/BoardScreen';
 import WriteScreen from './writescreens/WriteScreen';
 import PostDetailScreen from './writescreens/PostDetailScreen';
+import EditScreen from './writescreens/EditScreen'; // ✅ 게시글 수정 화면 추가
 
 
 const Stack = createNativeStackNavigator();
@@ -66,7 +67,7 @@ const App = () => {
             ),
           }}
         />
-        
+
 <Tab.Screen
       name="Game"
       component={GameScreen}
@@ -149,6 +150,9 @@ function BoardStackScreen({ posts, setPosts }) {
         {props => <WriteScreen {...props} posts={posts} setPosts={setPosts} />}
       </Stack.Screen>
       <Stack.Screen name="게시글 상세">
+        {props => <PostDetailScreen {...props} posts={posts} setPosts={setPosts} />}
+      </Stack.Screen>
+      <Stack.Screen name="게시글 수정">
         {props => <PostDetailScreen {...props} posts={posts} setPosts={setPosts} />}
       </Stack.Screen>
 

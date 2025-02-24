@@ -11,3 +11,6 @@ npm install @react-native-firebase/auth ------ 마찬가지
 
 
 
+npm install react-native-image-picker-이미지 등록
+
+npm install @firebase/firestore@latest
