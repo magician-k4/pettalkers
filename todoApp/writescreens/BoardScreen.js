@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Button, FlatList, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import HeaderButtons from '../components/HeaderButtons';
 import { auth, db } from '../firebase-config';
 import { collection, query, onSnapshot, orderBy } from 'firebase/firestore';
 
@@ -38,7 +37,6 @@ const BoardScreen = () => {
 
   return (
     <View style={styles.container}>
-      <HeaderButtons />
       <Button title="글쓰기" onPress={handleWritePress} />
       <FlatList
         data={posts}

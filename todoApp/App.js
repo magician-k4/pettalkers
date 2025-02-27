@@ -18,7 +18,7 @@ import SignUpScreen from './components/SignUpScreen';
 import BoardScreen from './writescreens/BoardScreen';
 import WriteScreen from './writescreens/WriteScreen';
 import PostDetailScreen from './writescreens/PostDetailScreen';
-import EditScreen from './writescreens/EditScreen'; // ✅ 게시글 수정 화면 추가
+import map from './screens/map';
 
 
 const Stack = createNativeStackNavigator();
@@ -79,6 +79,17 @@ const App = () => {
         ),
       }}
     />
+    <Tab.Screen
+          name="map"
+          component={map}
+          options={{
+            title: '동물병원지도',
+            headerTitleAlign: 'center',
+            tabBarIcon: ({ focused }) => (
+              <AntDesign name="map" size={24} color="black" />
+            ),
+          }}
+        />
         <Tab.Screen
           name="내정보"
           component={MyPageStackScreen}

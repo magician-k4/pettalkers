@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, TextInput, Button, Text, Alert } from 'react-native';
 import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../firebase-config"; // Firebase 설정 가져오기
+import { auth } from "../firebase-config";
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
@@ -12,7 +12,7 @@ const LoginScreen = ({ navigation }) => {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       console.log("로그인 성공:", userCredential.user);
       Alert.alert("로그인 성공", "환영합니다!");
-      navigation.navigate("Home"); 
+      navigation.navigate("마이페이지"); // ✅ MyPageScreen으로 이동하도록 수정
     } catch (error) {
       console.error("로그인 오류:", error.message);
       Alert.alert("로그인 실패", error.message);
