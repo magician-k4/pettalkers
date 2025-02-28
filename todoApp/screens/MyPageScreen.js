@@ -1,18 +1,23 @@
+// MyPageScreen.js
 import { Text, View, Pressable, StyleSheet } from 'react-native';
 import React from 'react';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import Octicons from '@expo/vector-icons/Octicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import HeaderButtons from '../components/HeaderButtons'; // HeaderButtons import
+import { useNavigation } from '@react-navigation/native'; // useNavigation import
 
 export default function MyPageScreen() {
+  const navigation = useNavigation(); // 네비게이션 훅 사용
+
   return (
     <View style={{ flex: 1 }}>
       {/* HeaderButtons를 상단에 추가 */}
       <HeaderButtons />
 
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 20 }}>
-        <Pressable>
+        {/* 내 반려동물 버튼 */}
+        <Pressable onPress={() => navigation.navigate('집사정보')}>
           <Text
             style={{
               fontSize: 17,
