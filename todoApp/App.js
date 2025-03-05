@@ -20,6 +20,7 @@ import WriteScreen from './writescreens/WriteScreen';
 import PostDetailScreen from './writescreens/PostDetailScreen';
 import map from './screens/map';
 import WeatherScreen from './screens/WeatherScreen'; // Weather.js 추가
+import MyProfile from './screens/MyProfile';  // MyProfile 컴포넌트 추가
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -31,7 +32,6 @@ const HomeStackScreen = () => {
       <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Game" component={GameScreen} options={{ title: "게임 화면" }} />
       <Stack.Screen name="Weather" component={WeatherScreen} options={{ title: "날씨 화면" }} />
-  
     </Stack.Navigator>
   );
 };
@@ -53,6 +53,11 @@ function MyPageStackScreen() {
     <Stack.Navigator>
       <Stack.Screen name="마이페이지" component={MyPageScreen} options={{ headerShown: false }} />
       <Stack.Screen name="집사정보" component={ButlerScreen} options={{ headerShown: false }} />
+      <Stack.Screen
+        name="MyProfile"
+        component={MyProfile}  // MyProfile 컴포넌트 추가
+        options={{ title: "내 프로필", headerTitleAlign: 'center' }}
+      />
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="SignUp" component={SignUpScreen} />
     </Stack.Navigator>
