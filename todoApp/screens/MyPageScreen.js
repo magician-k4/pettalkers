@@ -8,7 +8,6 @@ import { useNavigation } from '@react-navigation/native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import HeaderButtons from '../components/HeaderButtons'; // Import HeaderButtons
-import MyProfile from './MyProfile'; // MyProfile import
 
 export default function ButlerScreen() {
   const [modalVisible, setModalVisible] = useState(false);
@@ -106,23 +105,25 @@ export default function ButlerScreen() {
           )}
         />
 
-        <Modal animationType="slide" transparent={true} visible={modalVisible}>
-          <View style={styles.centeredView}>
-            <View style={styles.modalView}>
-              <Text style={styles.header}>반려동물 정보</Text>
-              <TextInput placeholder="반려동물 이름" style={styles.textInput} value={petName} onChangeText={setPetName} />
-              <TextInput placeholder="종 종류" style={styles.textInput} value={petBreed} onChangeText={setPetBreed} />
-              <Pressable style={styles.button} onPress={handleAddPet}>
-                <Text style={styles.textStyle}>
-                  <MaterialCommunityIcons name="check" size={24} color="black" /> 반려동물 추가하기
-                </Text>
-              </Pressable>
-              <Pressable style={styles.button} onPress={() => setModalVisible(false)}>
-                <Text style={styles.textStyle}>취소</Text>
-              </Pressable>
-            </View>
-          </View>
-        </Modal>
+<Modal animationType="slide" transparent={true} visible={modalVisible}>
+  <View style={styles.centeredView}>
+    <View style={styles.modalView}>
+      <Text style={styles.header}>반려동물 정보</Text>
+      <TextInput placeholder="반려동물 이름" style={styles.textInput} value={petName} onChangeText={setPetName} />
+      <TextInput placeholder="종 종류" style={styles.textInput} value={petBreed} onChangeText={setPetBreed} />
+      
+      <Pressable style={styles.modalButton} onPress={handleAddPet}>
+        <Text style={styles.textStyle}>
+          <MaterialCommunityIcons name="check" size={24} color="black" /> 반려동물 추가하기
+        </Text>
+      </Pressable>
+      
+      <Pressable style={styles.modalButton} onPress={() => setModalVisible(false)}>
+        <Text style={styles.textStyle}>취소</Text>
+      </Pressable>
+    </View>
+  </View>
+</Modal>
       </SafeAreaView>
     </SafeAreaProvider>
   );

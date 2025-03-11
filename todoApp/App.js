@@ -20,7 +20,8 @@ import WriteScreen from './writescreens/WriteScreen';
 import PostDetailScreen from './writescreens/PostDetailScreen';
 import map from './screens/map';
 import WeatherScreen from './screens/WeatherScreen'; // Weather.js 추가
-import MyProfile from './screens/MyProfile';  // MyProfile 컴포넌트 추가
+import MyProfile from './screens/MyProfile'; // MyProfile import
+
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -91,67 +92,68 @@ const App = () => {
 
   return (
     <NavigationContainer>
-      <Tab.Navigator>
-        <Tab.Screen
-          name="활동일지"
-          component={TodoStackScreen}
-          options={{
-            title: '활동일지',
-            headerTitleAlign: 'center',
-            tabBarIcon: ({ focused }) => (
-              <Entypo name="open-book" size={24} color="black" />
-            ),
-          }}
-        />
+      <Tab.Navigator initialRouteName="HomeStack">
+  <Tab.Screen
+    name="활동일지"
+    component={TodoStackScreen}
+    options={{
+      title: '활동일지',
+      headerTitleAlign: 'center',
+      tabBarIcon: ({ focused }) => (
+        <Entypo name="open-book" size={24} color="black" />
+      ),
+    }}
+  />
 
-        <Tab.Screen
-          name="게시판"
-          component={() => <BoardStackScreen posts={posts} setPosts={setPosts} />}
-          options={{
-            title: '게시판',
-            headerTitleAlign: 'center',
-            tabBarIcon: ({ focused }) => (
-              <FontAwesome6 name="clipboard-list" size={24} color="black" />
-            ),
-          }}
-        />
+  <Tab.Screen
+    name="게시판"
+    component={() => <BoardStackScreen posts={posts} setPosts={setPosts} />}
+    options={{
+      title: '게시판',
+      headerTitleAlign: 'center',
+      tabBarIcon: ({ focused }) => (
+        <FontAwesome6 name="clipboard-list" size={24} color="black" />
+      ),
+    }}
+  />
 
-        <Tab.Screen
-          name="HomeStack"
-          component={HomeStackScreen}
-          options={{
-            title: '메인 홈',
-            headerTitleAlign: 'center',
-            tabBarIcon: ({ focused }) => (
-              <AntDesign name="home" size={24} color="black" />
-            ),
-          }}
-        />
+  <Tab.Screen
+    name="HomeStack"
+    component={HomeStackScreen}
+    options={{
+      title: '메인 홈',
+      headerTitleAlign: 'center',
+      tabBarIcon: ({ focused }) => (
+        <AntDesign name="home" size={24} color="black" />
+      ),
+    }}
+  />
 
-        <Tab.Screen
-          name="map"
-          component={map}
-          options={{
-            title: '동물병원지도',
-            headerTitleAlign: 'center',
-            tabBarIcon: ({ focused }) => (
-              <AntDesign name="map" size={24} color="black" />
-            ),
-          }}
-        />
+  <Tab.Screen
+    name="map"
+    component={map}
+    options={{
+      title: '동물병원지도',
+      headerTitleAlign: 'center',
+      tabBarIcon: ({ focused }) => (
+        <AntDesign name="map" size={24} color="black" />
+      ),
+    }}
+  />
 
-        <Tab.Screen
-          name="내정보"
-          component={MyPageStackScreen}
-          options={{
-            title: '마이 페이지',
-            headerTitleAlign: 'center',
-            tabBarIcon: ({ focused }) => (
-              <FontAwesome6 name="circle-user" size={24} color="black" />
-            ),
-          }}
-        />
-      </Tab.Navigator>
+  <Tab.Screen
+    name="내정보"
+    component={MyPageStackScreen}
+    options={{
+      title: '마이 페이지',
+      headerTitleAlign: 'center',
+      tabBarIcon: ({ focused }) => (
+        <FontAwesome6 name="circle-user" size={24} color="black" />
+      ),
+    }}
+  />
+</Tab.Navigator>
+
     </NavigationContainer>
   );
 };
