@@ -17,15 +17,7 @@ export default function HomeScreen({ navigation }) {
     return () => unsubscribe();  // 컴포넌트 언마운트 시 구독 해제
   }, []);
 
-  // 로그인 여부에 따른 퀴즈 화면으로의 이동 처리
-  const handleQuizNavigation = () => {
-    const user = auth.currentUser;
-    if (!user) {
-      Alert.alert('로그인 해주세요!', '퀴즈에 참여하려면 로그인이 필요합니다.');
-      return;
-    }
-    navigation.navigate('Quiz'); // 로그인 상태일 경우 퀴즈 화면으로 이동
-  };
+
 
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
@@ -38,7 +30,7 @@ export default function HomeScreen({ navigation }) {
       <Button title="날씨 보기" onPress={() => navigation.navigate('Weather')} />
 
       {/* 퀴즈 시작 버튼 */}
-      <Button title="퀴즈 시작하기" onPress={handleQuizNavigation} disabled={!isLoggedIn} />
+      <Button title="실시간 채팅" onPress={() => navigation.navigate('Chat')} />
     </View>
   );
 }
