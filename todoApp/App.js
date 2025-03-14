@@ -13,6 +13,7 @@ import MyPageScreen from './screens/MyPageScreen';
 import HomeScreen from './screens/HomeScreen';
 import ButlerScreen from './screens/ButlerScreen';
 import GameScreen from './screens/GameScreen';
+import ChatRoomScreen from './screens/ChatRoomScreen';
 import ChatScreen from './screens/ChatScreen';
 import LoginScreen from './components/LoginScreen';
 import SignUpScreen from './components/SignUpScreen';
@@ -34,7 +35,8 @@ const HomeStackScreen = () => {
       <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Game" component={GameScreen} options={{ title: "게임 화면" }} />
       <Stack.Screen name="Weather" component={WeatherScreen} options={{ title: "날씨 화면" }} />
-      <Stack.Screen name="Chat" component={ChatScreen} options={{ title: "실시간 채팅" }} />
+      <Stack.Screen name="Chat" component={ChatRoomScreen} options={{ title: "실시간 채팅" }} />
+      <Stack.Screen name="ChatScreen" component={ChatScreen} options={{ title: "채팅방" }} />
     </Stack.Navigator>
   );
 };

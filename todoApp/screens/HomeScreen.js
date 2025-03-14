@@ -1,6 +1,7 @@
 import { Text, View, Button, Alert } from 'react-native';
 import React, { useState, useEffect } from 'react';
 import { auth, db, storage } from '../firebase-config'; // 이제 이 파일을 사용합니다.
+
 export default function HomeScreen({ navigation }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
@@ -17,7 +18,13 @@ export default function HomeScreen({ navigation }) {
     return () => unsubscribe();  // 컴포넌트 언마운트 시 구독 해제
   }, []);
 
-
+  const handleChatNavigation = () => {
+    if (isLoggedIn) {
+      navigation.navigate('Chat');
+    } else {
+      Alert.alert('로그인 필요', '실시간 채팅을 이용하려면 로그인해야 합니다.');
+    }
+  };
 
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
@@ -29,8 +36,8 @@ export default function HomeScreen({ navigation }) {
       {/* 날씨 보기 버튼 */}
       <Button title="날씨 보기" onPress={() => navigation.navigate('Weather')} />
 
-      {/* 퀴즈 시작 버튼 */}
-      <Button title="실시간 채팅" onPress={() => navigation.navigate('Chat')} />
+      {/* 실시간 채팅 버튼 */}
+      <Button title="실시간 채팅" onPress={handleChatNavigation} />
     </View>
   );
 }
