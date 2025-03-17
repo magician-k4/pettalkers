@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Button, Alert, StyleSheet, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { auth, db, storage } from '../firebase-config';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, getDoc, updateDoc, increment } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
@@ -11,7 +11,7 @@ const WriteScreen = () => {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [image, setImage] = useState(null);
-  const [loading, setLoading] = useState(false); // ✅ 로딩 상태 추가
+  const [loading, setLoading] = useState(false);
 
   // ✅ 이미지 선택 함수
   const pickImage = async () => {
@@ -27,68 +27,77 @@ const WriteScreen = () => {
     }
   };
 
-  // ✅ 게시글 저장 함수 (이미지 업로드 포함)
-  // 이미지 업로드와 Firestore에 데이터 저장 처리 부분
-const handleSubmit = async () => {
-  if (!title.trim() || !content.trim()) {
-    Alert.alert('입력 오류', '제목과 내용을 입력하세요.');
-    return;
-  }
-
-  const user = auth.currentUser;
-  if (!user) {
-    Alert.alert('로그인 필요', '로그인이 되어 있지 않습니다.');
-    return;
-  }
-
-  setLoading(true);
-
-  let imageUrl = '';
-  if (image) {
+  // ✅ Firestore에서 포인트 100점 증가
+  const increaseUserPoints = async (uid) => {
     try {
-      const response = await fetch(image);
-      const blob = await response.blob();
-
-      const storageRef = ref(storage, `images/${Date.now()}_${user.email}`);
-      await uploadBytes(storageRef, blob); // 이미지 업로드
-
-      // 업로드 완료 후 이미지 URL 가져오기
-      imageUrl = await getDownloadURL(storageRef);
+      const userRef = doc(db, 'users', uid);
+      await updateDoc(userRef, {
+        points: increment(100), // ✅ 포인트 100점 증가
+      });
     } catch (error) {
-      setLoading(false);
-      Alert.alert('오류', '이미지를 업로드하는 중 문제가 발생했습니다.');
-      console.error(error);
-      return;
+      console.error('포인트 업데이트 오류:', error);
     }
-  }
-
-  const newPost = {
-    title,
-    content,
-    imageUrl, // 이미지 URL 추가
-    recommendations: 0,
-    recommendedBy: [],
-    comments: [],
-    authorEmail: user.email,
-    createdAt: new Date().getTime(),
   };
 
-  try {
-    await addDoc(collection(db, 'posts'), newPost);
-    Alert.alert('작성 완료', '게시글이 성공적으로 등록되었습니다.', [
-      {
-        text: '확인',
-        onPress: () => navigation.navigate('게시판'),
-      },
-    ]);
-  } catch (error) {
-    Alert.alert('오류', '게시글을 저장하는 중 문제가 발생했습니다.');
-    console.error(error);
-  } finally {
-    setLoading(false); // 로딩 종료
-  }
-};
+  // ✅ 게시글 저장 함수 (이미지 업로드 포함)
+  const handleSubmit = async () => {
+    if (!title.trim() || !content.trim()) {
+      Alert.alert('입력 오류', '제목과 내용을 입력하세요.');
+      return;
+    }
 
+    const user = auth.currentUser;
+    if (!user) {
+      Alert.alert('로그인 필요', '로그인이 되어 있지 않습니다.');
+      return;
+    }
+
+    setLoading(true);
+
+    let imageUrl = '';
+    if (image) {
+      try {
+        const response = await fetch(image);
+        const blob = await response.blob();
+        const storageRef = ref(storage, `images/${Date.now()}_${user.email}`);
+        await uploadBytes(storageRef, blob);
+        imageUrl = await getDownloadURL(storageRef);
+      } catch (error) {
+        setLoading(false);
+        Alert.alert('오류', '이미지를 업로드하는 중 문제가 발생했습니다.');
+        console.error(error);
+        return;
+      }
+    }
+
+    const newPost = {
+      title,
+      content,
+      imageUrl,
+      recommendations: 0,
+      recommendedBy: [],
+      comments: [],
+      authorEmail: user.email,
+      createdAt: new Date().getTime(),
+    };
+
+    try {
+      await addDoc(collection(db, 'posts'), newPost);
+      await increaseUserPoints(user.uid); // ✅ 게시글 저장 후 포인트 증가
+
+      Alert.alert('작성 완료', '게시글이 성공적으로 등록되었습니다.', [
+        {
+          text: '확인',
+          onPress: () => navigation.navigate('게시판'),
+        },
+      ]);
+    } catch (error) {
+      Alert.alert('오류', '게시글을 저장하는 중 문제가 발생했습니다.');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -104,7 +113,6 @@ const handleSubmit = async () => {
 
       {image && <Image source={{ uri: image }} style={styles.previewImage} />}
 
-      {/* ✅ 로딩 중이면 버튼 비활성화 & 로딩 표시 */}
       {loading ? (
         <ActivityIndicator size="large" color="#1a73e8" />
       ) : (
