@@ -38,6 +38,9 @@ export default function HomeScreen({ navigation }) {
 
       {/* 실시간 채팅 버튼 */}
       <Button title="실시간 채팅" onPress={handleChatNavigation} />
+
+      <Button title="챗봇" onPress={() => navigation.navigate('GPTChat')} />
+
     </View>
   );
 }
