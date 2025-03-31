@@ -8,16 +8,14 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const weatherApiKey = WEATHER_API_KEY;
 
 const petCareTips = {
-  "clear sky": "오늘은 맑아요! 반려동물과 산책하기 좋은 날이에요.",
-  "few clouds": "약간 흐려요. 바람이 강할 수 있으니 주의하세요.",
-  "scattered clouds": "구름이 많아요. 반려동물이 불안해할 수 있어요.",
-  "broken clouds": "흐린 날씨예요. 반려동물이 우울해할 수 있으니 놀아주세요!",
-  "shower rain": "비가 내릴 가능성이 높아요. 외출 시 우비를 챙기세요!",
+  "clear": "오늘은 맑아요! 반려동물과 산책하기 좋은 날이에요.",
+  "clouds": "구름이 많아요. 반려동물이 불안해할 수 있어요.",
   "rain": "비가 많이 와요! 반려동물을 실내에서 보호해주세요.",
   "thunderstorm": "천둥번개가 칩니다. 반려동물이 무서워할 수 있어요!",
   "snow": "눈이 내려요! 발바닥 보호를 위해 신발을 신겨주세요.",
   "mist": "안개가 껴서 시야가 나빠요. 산책 시 주의하세요."
 };
+
 
 const getTemperatureTip = (temp) => {
   if (temp >= 30) return "더운 날이에요! 반려동물이 더위를 먹지 않도록 충분한 물을 주세요.";
@@ -72,9 +70,11 @@ export default function App() {
                 <Text style={styles.temp}>{parseFloat(day.temp.day).toFixed(0)}°</Text>
               </View>
               <View style={styles.petTipCon}>
-                <Text style={styles.petTip}>{petCareTips[day.weather[0].description] || "오늘도 반려동물과 즐거운 하루 보내세요!"}</Text>
-                <Text style={styles.petTip}>{getTemperatureTip(day.temp.day)}</Text>
-              </View>
+  <Text style={styles.petTip}>
+    {petCareTips[day.weather[0].main.toLowerCase()] || "오늘도 반려동물과 즐거운 하루 보내세요!"}
+  </Text>
+  <Text style={styles.petTip}>{getTemperatureTip(day.temp.day)}</Text>
+</View>
             </View>
           ))
         )}
