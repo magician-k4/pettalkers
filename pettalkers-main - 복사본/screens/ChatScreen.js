@@ -35,16 +35,17 @@ const ChatScreen = ({ route }) => {
         sender: user.email,
       });
       setNewMessage('');
-
-      // 메시지 전송 후 자동 스크롤
-      flatListRef.current?.scrollToEnd({ animated: true });
     } catch (error) {
       console.error('메시지를 보내는 중 오류 발생:', error);
     }
   };
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={80}
+    >
       <View style={styles.chatContainer}>
         <FlatList
           ref={flatListRef}
@@ -56,7 +57,8 @@ const ChatScreen = ({ route }) => {
               <Text style={styles.messageText}>{item.text}</Text>
             </View>
           )}
-          inverted // 최신 메시지가 아래에 위치하도록 설정
+          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+          onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
         />
       </View>
 
