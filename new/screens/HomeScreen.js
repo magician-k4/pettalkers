@@ -10,22 +10,40 @@ import {
   View,
   Image,
 } from 'react-native';
-import React, { useState, useEffect } from 'react';
+import React, { useState,} from 'react';
+import { useFocusEffect } from '@react-navigation/native'; 
 import Swiper from 'react-native-swiper';
-import { auth } from '../firebase-config';
-
+import { doc, getDoc } from 'firebase/firestore';  // ← 이거 꼭 추가!
+import { db, auth } from '../firebase-config';
 const { width } = Dimensions.get('window');
+
 
 export default function HomeScreen({ navigation }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-
-  useEffect(() => {
+ const [petType, setPetType] = useState('');
+ useFocusEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
-      setIsLoggedIn(!!user);
+      (async () => {
+        setIsLoggedIn(!!user);
+        if (user) {
+          try {
+            const userDoc = await getDoc(doc(db, 'users', user.uid));
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              console.log('🔥 petType in HomeScreen:', userData.petType);
+              setPetType(userData.petType || '');
+            }
+          } catch (error) {
+            console.error('❌ 사용자 정보 가져오기 실패:', error);
+          }
+        }
+      })();
     });
 
-    return () => unsubscribe();
-  }, []);
+
+  return () => unsubscribe();
+}, []);
+
 
   const handleChatNavigation = () => {
     if (isLoggedIn) {
@@ -109,19 +127,38 @@ export default function HomeScreen({ navigation }) {
       </View>
 
       {/* 동그란 이미지 링크 추가 */}
-      <View style={styles.circleImageRow}>
-        {circleImages.map((item, index) => (
-          <TouchableOpacity
-            key={index}
-            style={styles.circleImageContainer}
-            activeOpacity={0.7}
-            onPress={() => openLink(item.link)}
-          >
-            <Image source={{ uri: item.uri }} style={styles.circleImage} />
-            <Text style={styles.circleImageLabel}>{item.label}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+     <View style={styles.circleImageRow}>
+  {circleImages.map((item, index) => {
+    const isSelected = item.label === petType;
+    return (
+      <TouchableOpacity
+        key={index}
+        style={[
+          styles.circleImageContainer,
+          isSelected && styles.highlightedCircle, // 강조 스타일 추가
+        ]}
+        activeOpacity={0.7}
+        onPress={() => openLink(item.link)}
+      >
+        <Image
+          source={{ uri: item.uri }}
+          style={[
+            styles.circleImage,
+            isSelected && styles.highlightedImage, // 이미지 테두리 강조
+          ]}
+        />
+        <Text
+          style={[
+            styles.circleImageLabel,
+            isSelected && styles.highlightedLabel,
+          ]}
+        >
+          {item.label}
+        </Text>
+      </TouchableOpacity>
+    );
+  })}
+</View>
 
       <Text style={styles.title}>오늘의 날씨를 확인해 보세요</Text>
       <CustomButton
@@ -233,4 +270,17 @@ const styles = StyleSheet.create({
     color: '#333',
     fontWeight: '500',
   },
+  highlightedCircle: {
+  transform: [{ scale: 1.1 }],
+},
+
+highlightedImage: {
+  borderColor: '#ff9800',
+  borderWidth: 2,
+},
+
+highlightedLabel: {
+  color: '#ff9800',
+  fontWeight: 'bold',
+},
 });
