@@ -1,30 +1,31 @@
 // App.js
-import 'react-native-get-random-values';
-import React, { useState, useEffect, useRef } from 'react';
-import {
-  SafeAreaView,
-  View,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  ActivityIndicator,
-  ScrollView,
-  Image,
-  Share,
-  Alert,
-  Linking,
-  Animated,
-  Dimensions,
-  Modal,
-  TextInput,
-} from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE, Polyline } from 'react-native-maps';
+import { EXPO_PUBLIC_GOOGLE_MAPS_API_KEY } from '@env';
+import polyline from '@mapbox/polyline';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { Pedometer } from 'expo-sensors';
 import * as Speech from 'expo-speech';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Dimensions,
+  Image,
+  Linking,
+  Modal,
+  SafeAreaView,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import 'react-native-get-random-values';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
-import { EXPO_PUBLIC_GOOGLE_MAPS_API_KEY } from '@env';
+import MapView, { Marker, PROVIDER_GOOGLE, Polyline } from 'react-native-maps';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const CARD_HEIGHT = SCREEN_HEIGHT * 0.5;
@@ -32,9 +33,13 @@ const CARD_HEIGHT = SCREEN_HEIGHT * 0.5;
 const USER_WEIGHT = 65;    // kg
 const WALK_MET    = 3.5;   // MET (~5km/h)
 
-const MIN_DELTA = 0.01;    // km (10m)
-const MAX_DELTA = 0.2;     // km (200m)
+// 노이즈 필터링 강화: 최소 20m, 최대 150m 이동만 누적
+const MIN_DELTA = 0.02;    // km (20m)
+const MAX_DELTA = 0.15;    // km (150m)
 const ACCURACY_THRESHOLD = 20; // m
+
+// 속도 필터: 초당 최대 3m (도보 속도 상한 약 10.8km/h)
+const SPEED_THRESHOLD = 3; // m/s
 
 export default function App() {
   // State
@@ -57,12 +62,16 @@ export default function App() {
 
   const [showGoalModal, setShowGoalModal] = useState(false);
 
+  // Navigation guidance state
+  const [navCoords, setNavCoords] = useState([]);
+  const [navSteps, setNavSteps] = useState([]);
+
   // Refs
   const locationSub = useRef(null);
   const pedometerSub = useRef(null);
   const timerRef = useRef(null);
   const startTimestampRef = useRef(0);
-  const initialStepCountRef = useRef(null);
+  const lastLocationTimestampRef = useRef(0);
 
   const mapRef = useRef(null);
   const autoRef = useRef(null);
@@ -149,7 +158,7 @@ export default function App() {
     }
   };
 
-  // Details
+  // Details & fetch directions
   const fetchDetails = async place_id => {
     try {
       const params = new URLSearchParams({
@@ -160,22 +169,45 @@ export default function App() {
       const res = await fetch(`https://maps.googleapis.com/maps/api/place/details/json?${params}`);
       const { result } = await res.json();
       setDetails(result || {});
+      setNavCoords([]);
+      setNavSteps([]);
       slideAnim.setValue(CARD_HEIGHT);
       Animated.timing(slideAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start();
+
+      const { lat, lng } = result.geometry.location;
+      fetchDirections(lat, lng);
     } catch {
       setDetails(null);
     }
   };
-  const closeDetails = () => {
-    Animated.timing(slideAnim, { toValue: CARD_HEIGHT, duration: 300, useNativeDriver: true })
-      .start(() => setDetails(null));
-  };
-  const recenter = () => {
-    if (region && mapRef.current) {
-      mapRef.current.animateToRegion(region, 500);
+
+  // Directions API
+  const fetchDirections = async (destLat, destLng) => {
+    if (!region) return;
+    const origin = `${region.latitude},${region.longitude}`;
+    const destination = `${destLat},${destLng}`;
+    const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin}&destination=${destination}&mode=walking&key=${EXPO_PUBLIC_GOOGLE_MAPS_API_KEY}`;
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.routes.length > 0) {
+        const leg = data.routes[0].legs[0];
+        const steps = leg.steps.map(s =>
+          s.html_instructions.replace(/<[^>]+>/g, '')
+        );
+        setNavSteps(steps);
+
+        const coords = polyline
+          .decode(data.routes[0].overview_polyline.points)
+          .map(([lat, lng]) => ({ latitude: lat, longitude: lng }));
+        setNavCoords(coords);
+      }
+    } catch (e) {
+      console.warn('Directions API error', e);
     }
-    closeDetails();
   };
+
+  // 액션: 전화, 길찾기, 공유
   const onShare = async () => {
     if (!details) return;
     try {
@@ -185,6 +217,28 @@ export default function App() {
     } catch (e) {
       Alert.alert('공유 실패', e.message || '알 수 없는 오류');
     }
+  };
+  const handleNavigate = (lat, lng) => {
+    if (!region) return;
+    const origin = `${region.latitude},${region.longitude}`;
+    const destination = `${lat},${lng}`;
+    const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=walking`;
+    Linking.openURL(url);
+  };
+
+  const closeDetails = () => {
+    Animated.timing(slideAnim, { toValue: CARD_HEIGHT, duration: 300, useNativeDriver: true })
+      .start(() => {
+        setDetails(null);
+        setNavCoords([]);
+        setNavSteps([]);
+      });
+  };
+  const recenter = () => {
+    if (region && mapRef.current) {
+      mapRef.current.animateToRegion(region, 500);
+    }
+    closeDetails();
   };
 
   // Haversine
@@ -229,7 +283,6 @@ export default function App() {
     setShowGoalModal(false);
     startTracking();
   };
-
   const startTracking = async () => {
     setRouteCoords([]);
     setDistanceKm(0);
@@ -239,16 +292,16 @@ export default function App() {
     setAlertedFull(false);
     setPaused(false);
 
+    // 타이머 & 스텝 초기화
     startTimestampRef.current = Date.now();
-    setElapsedMs(0);
+    lastLocationTimestampRef.current = Date.now();
     timerRef.current = setInterval(() => {
       setElapsedMs(Date.now() - startTimestampRef.current);
     }, 1000);
 
-    initialStepCountRef.current = null;
     pedometerSub.current = Pedometer.watchStepCount(evt => {
-      const steps = evt.steps||0;
-      if (initialStepCountRef.current===null) {
+      const steps = evt.steps || 0;
+      if (initialStepCountRef.current == null) {
         initialStepCountRef.current = steps;
       }
       setStepCount(steps - initialStepCountRef.current);
@@ -264,21 +317,27 @@ export default function App() {
       pos => {
         const { latitude, longitude, accuracy } = pos.coords;
         if (accuracy > ACCURACY_THRESHOLD) return;
+
+        const now = Date.now();
+        const dt = (now - lastLocationTimestampRef.current) / 1000; // 초
+        lastLocationTimestampRef.current = now;
+
         setRouteCoords(rc => {
-          if (rc.length>0) {
-            const last = rc[rc.length-1];
-            const delta = haversineKm(
-              [last.latitude,last.longitude],
-              [latitude,longitude]
-            );
-            if (delta>=MIN_DELTA && delta<=MAX_DELTA) {
-              setDistanceKm(prev=>{
-                const nd = prev+delta;
-                if (!alertedHalf && target>0 && nd>=target/2) {
+          const newCoord = { latitude, longitude };
+          if (rc.length > 0) {
+            const last = rc[rc.length - 1];
+            const delta = haversineKm([last.latitude, last.longitude], [latitude, longitude]);
+            const speed = (delta * 1000) / dt; // m/s
+            // 필터 조건: 거리 & 속도 모두 적절할 때만 누적
+            if (delta >= MIN_DELTA && delta <= MAX_DELTA && speed < SPEED_THRESHOLD) {
+              setDistanceKm(prev => {
+                const nd = prev + delta;
+                // 알림 처리
+                if (!alertedHalf && target > 0 && nd >= target / 2) {
                   Speech.speak('목표 거리의 절반을 달성했습니다. 계속 화이팅!');
                   setAlertedHalf(true);
                 }
-                if (!alertedFull && target>0 && nd>=target) {
+                if (!alertedFull && target > 0 && nd >= target) {
                   const cal = computeCalories();
                   Alert.alert(
                     '목표 완주! 🎉',
@@ -289,33 +348,33 @@ export default function App() {
                 }
                 return nd;
               });
-              return [...rc,{latitude,longitude}];
+              return [...rc, newCoord];
             }
             return rc;
           }
-          return [{latitude,longitude}];
+          return [newCoord];
         });
       }
     );
 
     setTracking(true);
   };
-
   const pauseTracking = () => {
     locationSub.current?.remove();
     pedometerSub.current?.remove();
     clearInterval(timerRef.current);
     setPaused(true);
   };
-
   const resumeTracking = async () => {
+    // 타이머 재동기화
     startTimestampRef.current = Date.now() - elapsedMs;
+    lastLocationTimestampRef.current = Date.now();
     timerRef.current = setInterval(() => {
       setElapsedMs(Date.now() - startTimestampRef.current);
     }, 1000);
 
     pedometerSub.current = Pedometer.watchStepCount(evt => {
-      const steps = evt.steps||0;
+      const steps = evt.steps || 0;
       setStepCount(steps - initialStepCountRef.current);
     });
 
@@ -327,28 +386,31 @@ export default function App() {
       },
       pos => {
         const { latitude, longitude, accuracy } = pos.coords;
-        if (accuracy>ACCURACY_THRESHOLD) return;
-        setRouteCoords(rc=>{
-          if (rc.length>0) {
-            const last = rc[rc.length-1];
-            const delta = haversineKm(
-              [last.latitude,last.longitude],
-              [latitude,longitude]
-            );
-            if (delta>=MIN_DELTA && delta<=MAX_DELTA) {
-              setDistanceKm(prev=>prev+delta);
-              return [...rc,{latitude,longitude}];
+        if (accuracy > ACCURACY_THRESHOLD) return;
+
+        const now = Date.now();
+        const dt = (now - lastLocationTimestampRef.current) / 1000;
+        lastLocationTimestampRef.current = now;
+
+        setRouteCoords(rc => {
+          const newCoord = { latitude, longitude };
+          if (rc.length > 0) {
+            const last = rc[rc.length - 1];
+            const delta = haversineKm([last.latitude, last.longitude], [latitude, longitude]);
+            const speed = (delta * 1000) / dt;
+            if (delta >= MIN_DELTA && delta <= MAX_DELTA && speed < SPEED_THRESHOLD) {
+              setDistanceKm(prev => prev + delta);
+              return [...rc, newCoord];
             }
             return rc;
           }
-          return [{latitude,longitude}];
+          return [newCoord];
         });
       }
     );
 
     setPaused(false);
   };
-
   const stopTracking = () => {
     pauseTracking();
     setTracking(false);
@@ -358,13 +420,8 @@ export default function App() {
   if (!region) {
     return <ActivityIndicator style={styles.center} size="large" />;
   }
-
-  const remaining = kmInput
-    ? Math.max(0, Number(kmInput)-distanceKm).toFixed(2)
-    : null;
-  const progress = kmInput
-    ? Math.min(1, distanceKm/Number(kmInput))
-    : 0;
+  const remaining = kmInput ? Math.max(0, Number(kmInput) - distanceKm).toFixed(2) : null;
+  const progress = kmInput ? Math.min(1, distanceKm / Number(kmInput)) : 0;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -378,12 +435,7 @@ export default function App() {
             onPress={async (_, detail) => {
               const lat = detail?.geometry?.location?.lat ?? region.latitude;
               const lng = detail?.geometry?.location?.lng ?? region.longitude;
-              const newR = {
-                latitude: lat,
-                longitude: lng,
-                latitudeDelta: 0.1,
-                longitudeDelta: 0.1
-              };
+              const newR = { latitude: lat, longitude: lng, latitudeDelta: 0.1, longitudeDelta: 0.1 };
               setRegion(newR);
               await fetchNearbyVets(newR);
               await fetchNearbyParks(newR);
@@ -406,7 +458,8 @@ export default function App() {
               textInputContainer: styles.searchInputContainer,
               textInput: styles.searchInput,
               listView: { backgroundColor: '#fff', borderRadius: 6, overflow: 'hidden' },
-            }} />
+            }}
+          />
           <TouchableOpacity style={styles.favListBtn} onPress={()=>setShowFavList(true)}>
             <Text style={styles.favListBtnText}>⭐</Text>
           </TouchableOpacity>
@@ -425,24 +478,29 @@ export default function App() {
         showsUserLocation
         onPress={closeDetails}
       >
-        {places.map(p=>(
+        {places.map(p => (
           <Marker
             key={p.place_id}
             coordinate={{ latitude: p.geometry.location.lat, longitude: p.geometry.location.lng }}
-            onPress={()=>fetchDetails(p.place_id)}>
+            onPress={()=>fetchDetails(p.place_id)}
+          >
             <Text style={styles.marker}>🏥</Text>
           </Marker>
         ))}
-        {parks.map(p=>(
+        {parks.map(p => (
           <Marker
             key={p.place_id}
             coordinate={{ latitude: p.geometry.location.lat, longitude: p.geometry.location.lng }}
-            onPress={()=>fetchDetails(p.place_id)}>
+            onPress={()=>fetchDetails(p.place_id)}
+          >
             <Text style={styles.marker}>🌳</Text>
           </Marker>
         ))}
         {routeCoords.length>1 && (
           <Polyline coordinates={routeCoords} strokeWidth={4} strokeColor="#4A90E2" />
+        )}
+        {navCoords.length>1 && (
+          <Polyline coordinates={navCoords} strokeWidth={6} strokeColor="#FF6347" />
         )}
       </MapView>
 
@@ -491,19 +549,29 @@ export default function App() {
       {details && (
         <Animated.View style={[styles.details, { transform: [{ translateY: slideAnim }] }]}>
           <ScrollView>
-            <View style={styles.headerRow}>
+            <View style={styles.headerRow}>  
               <TouchableOpacity onPress={closeDetails}>
                 <Text style={styles.closeBtn}>✖️</Text>
               </TouchableOpacity>
-              <Text style={[styles.placeName, { flex: 1, textAlign: 'center' }]} numberOfLines={1}>{details.name}</Text>
+              <Text style={[styles.placeName, { flex: 1, textAlign: 'center' }]} numberOfLines={1}>
+                {details.name}
+              </Text>
               <TouchableOpacity onPress={toggleFav}>
-                <Text style={styles.favBtn}>{favorites.some(f=>f.place_id===details.place_id)?'❤️':'🤍'}</Text>
+                <Text style={styles.favBtn}>
+                  {favorites.some(f => f.place_id === details.place_id) ? '❤️' : '🤍'}
+                </Text>
               </TouchableOpacity>
             </View>
-            {details.photos?.length>0 && (
+            {details.photos?.length > 0 && (
               <ScrollView horizontal style={styles.photoScroll} showsHorizontalScrollIndicator={false}>
-                {details.photos.map((ph,i)=>(
-                  <Image key={i} source={{ uri:`https://maps.googleapis.com/maps/api/place/photo?maxwidth=200&photoreference=${ph.photo_reference}&key=${EXPO_PUBLIC_GOOGLE_MAPS_API_KEY}` }} style={styles.photo} />
+                {details.photos.map((ph, i) => (
+                  <Image
+                    key={i}
+                    source={{
+                      uri: `https://maps.googleapis.com/maps/api/place/photo?maxwidth=200&photoreference=${ph.photo_reference}&key=${EXPO_PUBLIC_GOOGLE_MAPS_API_KEY}`
+                    }}
+                    style={styles.photo}
+                  />
                 ))}
               </ScrollView>
             )}
@@ -530,15 +598,15 @@ export default function App() {
             {details.opening_hours?.weekday_text && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>⏰ 시간</Text>
-                {details.opening_hours.weekday_text.map((t,i)=>(
+                {details.opening_hours.weekday_text.map((t, i) => (
                   <Text key={i} style={styles.value}>{t}</Text>
                 ))}
               </View>
             )}
-            {details.reviews?.length>0 && (
+            {details.reviews?.length > 0 && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>💬 리뷰</Text>
-                {details.reviews.slice(0,3).map((r,i)=>(
+                {details.reviews.slice(0, 3).map((r, i) => (
                   <View key={i} style={styles.review}>
                     <Text style={styles.reviewAuthor}>{r.author_name} ({r.rating}⭐)</Text>
                     <Text style={styles.value}>{r.text}</Text>
@@ -546,16 +614,35 @@ export default function App() {
                 ))}
               </View>
             )}
+            {navSteps.length > 0 && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>🚶‍♂️ 길 안내</Text>
+                {navSteps.map((step, i) => (
+                  <Text key={i} style={styles.value}>{`${i + 1}. ${step}`}</Text>
+                ))}
+              </View>
+            )}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>⌛ 대기시간</Text>
-              <Text style={styles.value}>약 {Math.floor(Math.random()*30)+5}분</Text>
+              <Text style={styles.value}>약 {Math.floor(Math.random() * 30) + 5}분</Text>
             </View>
+
+            {/* actionRow: 전화, 길찾기, 공유 */}
             <View style={styles.actionRow}>
               {details.formatted_phone_number && (
                 <TouchableOpacity style={styles.btn} onPress={()=>Linking.openURL(`tel:${details.formatted_phone_number}`)}>
                   <Text style={styles.btnText}>☎️ 전화</Text>
                 </TouchableOpacity>
               )}
+              <TouchableOpacity
+                style={styles.btn}
+                onPress={() => handleNavigate(
+                  details.geometry.location.lat,
+                  details.geometry.location.lng
+                )}
+              >
+                <Text style={styles.btnText}>🚶 길찾기</Text>
+              </TouchableOpacity>
               <TouchableOpacity style={styles.btn} onPress={onShare}>
                 <Text style={styles.btnText}>🔗 공유</Text>
               </TouchableOpacity>
@@ -570,20 +657,25 @@ export default function App() {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>⭐ 즐겨찾기 목록</Text>
             <ScrollView>
-              {favorites.map(p=>(
-                <TouchableOpacity key={p.place_id} style={styles.favItem} onPress={async()=>{
-                  const lat=p.geometry.location.lat, lng=p.geometry.location.lng;
-                  const nr={latitude:lat,longitude:lng,latitudeDelta:0.1,longitudeDelta:0.1};
-                  setRegion(nr);
-                  await fetchNearbyVets(nr);
-                  await fetchNearbyParks(nr);
-                  setShowFavList(false);
-                  closeDetails();
-                }}>
+              {favorites.map(p => (
+                <TouchableOpacity
+                  key={p.place_id}
+                  style={styles.favItem}
+                  onPress={async () => {
+                    const lat = p.geometry.location.lat;
+                    const lng = p.geometry.location.lng;
+                    const nr = { latitude: lat, longitude: lng, latitudeDelta: 0.1, longitudeDelta: 0.1 };
+                    setRegion(nr);
+                    await fetchNearbyVets(nr);
+                    await fetchNearbyParks(nr);
+                    setShowFavList(false);
+                    closeDetails();
+                  }}
+                >
                   <Text style={styles.favItemText}>{p.name}</Text>
                 </TouchableOpacity>
               ))}
-              {favorites.length===0 && <Text style={styles.emptyText}>즐겨찾기가 없습니다.</Text>}
+              {favorites.length === 0 && <Text style={styles.emptyText}>즐겨찾기가 없습니다.</Text>}
             </ScrollView>
             <TouchableOpacity style={styles.modalClose} onPress={()=>setShowFavList(false)}>
               <Text style={styles.modalCloseText}>닫기</Text>
@@ -622,7 +714,6 @@ export default function App() {
 const styles = StyleSheet.create({
   container:        { flex: 1, backgroundColor: '#fff' },
   center:           { flex: 1, justifyContent: 'center', alignItems: 'center' },
-
   topBar:           { position: 'absolute', top: 40, left: 10, right: 10, zIndex: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   searchWrapper:    { flex: 1, flexDirection: 'row', backgroundColor: '#fff', borderRadius: 8, elevation: 4, alignItems: 'center', paddingHorizontal: 8, marginRight: 8 },
   searchInputContainer:{ backgroundColor:'#fff',borderRadius:6,paddingHorizontal:4 },
@@ -631,23 +722,18 @@ const styles = StyleSheet.create({
   favListBtnText:   { fontSize: 18 },
   locationBtn:      { backgroundColor: '#4A90E2', borderRadius: 6, paddingVertical: 8, paddingHorizontal: 12, elevation: 4 },
   locationBtnText:  { color: '#fff', fontSize: 14, fontWeight: '500' },
-
   map:              { flex: 1 },
   marker:           { fontSize: 24 },
-
   controlRow:       { position: 'absolute', top: 100, left: 10, right: 10, flexDirection: 'row', justifyContent: 'space-around', zIndex: 20 },
   trackBtn:         { backgroundColor: '#4A90E2', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, elevation: 4 },
   pauseBtn:         { backgroundColor: '#FFA500' },
   resumeBtn:        { backgroundColor: '#28a745' },
   stopBtn:          { backgroundColor: '#D9534F' },
   trackBtnText:     { color: '#fff', fontSize: 14, fontWeight: '600' },
-
   progressWrapper:  { position: 'absolute', top: 150, left: 20, right: 20, height: 8, backgroundColor: '#eee', borderRadius: 4, overflow: 'hidden', zIndex: 20 },
   progressBarFill:  { height: 8, backgroundColor: '#4A90E2' },
-
   statsContainer:   { position: 'absolute', bottom: 20, right: 16, backgroundColor: 'rgba(0,0,0,0.7)', padding: 12, borderRadius: 8, elevation: 4, zIndex: 10 },
   statsText:        { color: '#fff', fontSize: 14, marginBottom: 4 },
-
   details:          { position: 'absolute', bottom: 0, left: 0, right: 0, height: CARD_HEIGHT, backgroundColor: '#fff', elevation: 6, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16, zIndex: 10 },
   headerRow:        { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   closeBtn:         { fontSize: 22, color: '#333' },
@@ -656,7 +742,7 @@ const styles = StyleSheet.create({
   photoScroll:      { marginVertical: 8 },
   photo:            { width: 160, height: 100, borderRadius: 8, marginRight: 8 },
   section:          { marginVertical: 8 },
-  sectionTitle:     {	fontSize: 16, fontWeight: '600', color: '#555', marginBottom: 4 },
+  sectionTitle:     { fontSize: 16, fontWeight: '600', color: '#555', marginBottom: 4 },
   sectionRow:       { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
   value:            { flex: 1, color: '#444', fontSize: 14 },
   link:             { color: '#4A90E2', textDecorationLine: 'underline' },
@@ -665,7 +751,6 @@ const styles = StyleSheet.create({
   actionRow:        { flexDirection: 'row', justifyContent: 'space-around', marginTop: 16 },
   btn:              { backgroundColor: '#4A90E2', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, elevation: 4 },
   btnText:          { color: '#fff', fontSize: 14 },
-
   modalBackdrop:    { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   modalContent:     { width: '80%', maxHeight: '70%', backgroundColor: '#fff', borderRadius: 12, padding: 16 },
   modalTitle:       { fontSize: 18, fontWeight: 'bold', marginBottom: 12, textAlign: 'center' },
@@ -674,7 +759,6 @@ const styles = StyleSheet.create({
   emptyText:        { textAlign: 'center', marginTop: 20, color: '#666' },
   modalClose:       { marginTop: 12, alignSelf: 'center', backgroundColor: '#4A90E2', padding: 10, borderRadius: 8 },
   modalCloseText:   { color: '#fff', fontSize: 14 },
-
   goalModalBackdrop:{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   goalModalContent: { width: '80%', backgroundColor: '#fff', borderRadius: 12, padding: 20, elevation: 6 },
   goalInput:        { height: 44, backgroundColor: '#f2f2f2', borderRadius: 8, paddingHorizontal: 12, fontSize: 16, marginBottom: 16 },
